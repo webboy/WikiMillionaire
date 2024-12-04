@@ -1,22 +1,28 @@
+# Import packages
 import os
 import time
 import threading
 from dotenv import load_dotenv
-from data_models.player import Player
+# Import data models
 from data_models.difficulty import Difficulty
 from data_models.team import Team
 from data_models.question import Question
 from data_models.game import Game
+# Import services
 from services.openai_service import OpenAIService
 from services.wikipedia_service import WikipediaService
 from services.difficulty_service import DifficultyService
 from services.display_service import DisplayService
+from services.user_input_service import UserInputService
+from services.sound_service import SoundService
+# Import widgets
 from widgets.spinner_widget import SpinnerWidget
 
-def ask_question(game, wikipedia_service, openai_service, spinner, wiki_max_tries, openai_max_tries, time_limit = 30):
+def ask_question(game, wikipedia_service, openai_service, sound_service, spinner, wiki_max_tries, openai_max_tries, time_limit = 30):
     """
     Handles the logic for asking a single question in the game with a 30-second timer.
 
+    :param sound_service: SoundService instance
     :param time_limit: Time limit in seconds for the answer
     :param game: The current Game instance.
     :param wikipedia_service: WikipediaService instance.
@@ -27,14 +33,13 @@ def ask_question(game, wikipedia_service, openai_service, spinner, wiki_max_trie
     :return: Tuple (is_correct, safe_prize) indicating whether the question was answered correctly
              and the prize to award in case of incorrect answers.
     """
+
     current_player = game.get_current_player()
     prizes = game.difficulty.prizes
     difficulty = game.difficulty
     safe_levels = game.difficulty.safe_levels
     index = game.current_question_index
     prize = prizes[index]
-
-
 
     print(f"It's {current_player.username}'s turn!")
     print(f"\nQuestion {index + 1} / {len(prizes)} for ${prize}:")
@@ -54,7 +59,21 @@ def ask_question(game, wikipedia_service, openai_service, spinner, wiki_max_trie
     # Prepare the question
     question = prepare_question(question, difficulty)
 
-    def print_question(d_question: Question):
+    def timer_thread(timeout_event, duration):
+        """
+        Timer thread that counts down and sets the timeout_event when time runs out.
+        """
+        for remaining in range(duration, 0, -1):
+            if timeout_event.is_set():  # Stop the timer if timeout_event is already set
+                return
+            time.sleep(1)
+        timeout_event.set()  # Trigger timeout_event when time runs out
+
+    def print_question_thread(d_question: Question):
+
+        nonlocal answer_event
+        nonlocal timeout_event
+        nonlocal answer_container
 
         # Calculate remaining time
         remaining_time = time_limit - (time.time() - start_time)
@@ -77,46 +96,87 @@ def ask_question(game, wikipedia_service, openai_service, spinner, wiki_max_trie
         else:
             print(f"\nYou have no available jokers.")
 
-        answer = input(f"\nYour answer ({available_options}):").strip()
+        user_answer = input(f"\nYour answer ({available_options}):").strip()
 
-        if answer in available_jokers:
-            d_question = game.jokers[answer].apply(d_question)
-            print(f"You have just used the joker: {game.jokers[answer].name}.")
-            del (game.jokers[answer])
-            return print_question(d_question)
-
-        return answer
+        if user_answer in available_jokers:
+            d_question = game.jokers[user_answer].apply(d_question)
+            print(f"You have just used the joker: {game.jokers[user_answer].name}.")
+            del (game.jokers[user_answer])
+            print_question_thread(d_question)
+        else:
+            answer_container["answer"] = user_answer  # Store the answer in a shared container
+            answer_event.set()
 
     start_time = time.time()
 
-    answer = print_question(question)
+    # Shared container and events for threads
+    answer_event = threading.Event()
+    timeout_event = threading.Event()
+    answer_container = {}
 
-    elapsed_time = time.time() - start_time
+    # Start threads
+    ask_thread = threading.Thread(
+        target=print_question_thread,
+        args=(question,),
+        daemon=True,
+    )
+    timer_thread = threading.Thread(
+        target=timer_thread,
+        args=(timeout_event, time_limit),
+        daemon=True,
+    )
+
+    ask_thread.start()
+    timer_thread.start()
+
+    # Wait for either event to be triggered
+    while not (answer_event.is_set() or timeout_event.is_set()):
+        time.sleep(0.1)  # Avoid busy-waiting
 
     safe_prize = max(
         [p for level, p in safe_levels.items() if int(level) <= int(index + 1)],
         default=0,
     )
+    if answer_event.is_set():
+        timeout_event.set() # Stop the timer thread
 
-    if elapsed_time > time_limit:
-        print(f"\nYou took {elapsed_time:.2f} seconds to answer the question. That's over the limit of {time_limit} seconds. Sorry.")
+        answer = answer_container.get("answer", "")
+        # Validate the answer
+        if answer == 'quit':
+            print(f"We are sorry to see you leaving, {current_player.username}, but we understand life is not always about playing games.")
+            print(f"Your team leaves with ${safe_prize}.")
+            ask_thread.join()
+            timer_thread.join()
+            return False, safe_prize
+
+        if question.is_correct(answer):
+            print(f"Correct! {current_player.username} has won ${prize} for the {game.team.name} team!")
+            game.add_question(question)
+            ask_thread.join()
+            timer_thread.join()
+            sound_service.play_answer_sound()
+            return True, prize
+
+        # Handle incorrect answer
+        sound_service.play_answer_sound()
+        print(f"Wrong answer, {current_player.username}!")
+        print(f"The correct answer is '{question.correct_answer}' and you answered with '{answer}'.")
+
+        print(f"Your team leaves with ${safe_prize}.")
+        ask_thread.join()
+        timer_thread.join()
         return False, safe_prize
 
-    # Validate the answer
-    if question.is_correct(answer):
-        print(f"Correct! {current_player.username} has won ${prize} for the {game.team.name} team!")
-        game.add_question(question)
-        return True, prize
-
-    # Handle incorrect answer
-    print(f"Wrong answer, {current_player.username}!")
-    print(f"The correct answer is '{question.correct_answer}' and you answered with '{answer}'.")
+    if timeout_event.is_set():
+        print(f"\nTimed out after {time_limit} seconds, sorry. Press [ENTER] to continue..."
+              f"")
+        ask_thread.join()
+        timer_thread.join()
+        return False, safe_prize
 
 
-    print(f"Your team leaves with ${safe_prize}.")
-    return False, safe_prize
 
-def setup_team() -> Team:
+def setup_team(user_input_service: UserInputService) -> Team:
     """
     Set up a team at the start of the game.
     :return: A Team instance.
@@ -128,7 +188,8 @@ def setup_team() -> Team:
     default_team_name = str(os.getenv("DEFAULT_TEAM_NAME", "PentaBytes"))
     while True:
         try:
-            team_name = input(f"Enter your team name (default: {default_team_name}): ").strip()
+            team_name = user_input_service.input_for_team_name(default_team_name)
+            #input(f"Enter your team name (default: {default_team_name}): ").strip()
             if not team_name:
                 team_name = default_team_name  # Use default name if none is provided
             team = Team(name=team_name, max_players=max_players)
@@ -136,33 +197,13 @@ def setup_team() -> Team:
         except ValueError as e:
             print(f"Error: {e}")
 
-    # Add players to the team
-    while True:
-        try:
-            user_input = input(f"Enter the number of players in your team (1-{max_players}), default is 1: ").strip()
-            if not user_input:  # If input is empty, use the default value
-                num_players = 1
-            else:
-                num_players = int(user_input)
-            if num_players < 1 or num_players > max_players:
-                raise ValueError
-            break
-        except ValueError:
-            print(f"Invalid input. Please enter a number between 1 and {max_players}.")
+
+    num_players = user_input_service.input_for_players_number(max_players)
 
     default_username_prefix = str(os.getenv("DEFAULT_USERNAME", "Player"))
-    for _ in range(num_players):
-        while True:
-            try:
-                default_username = f"{default_username_prefix} {str(_ + 1)}"
-                username = input(f"Enter the username for the player (default: {default_username}): ").strip()
-                if not username:
-                    username = default_username
-                player = Player(username=username)
-                team.add_player(player)
-                break
-            except ValueError as e:
-                print(f"Error: {e}")
+    for i in range(num_players):
+        player = user_input_service.input_for_single_player_name(i, default_username_prefix)
+        team.add_player(player)
 
     return team
 
@@ -195,7 +236,7 @@ def prepare_question(question, difficulty) -> Question:
 
     return question
 
-def choose_difficulty(difficulty_service) -> Difficulty :
+def choose_difficulty(difficulty_service, user_input_service) -> Difficulty :
     """
     Let the player choose a difficulty level and return the corresponding Difficulty object.
     """
@@ -203,11 +244,9 @@ def choose_difficulty(difficulty_service) -> Difficulty :
     available_difficulties = difficulty_service.list_difficulties()
     print("\nAvailable difficulties:", ", ".join(available_difficulties))
 
-    selected_difficulty = None
-    while selected_difficulty not in available_difficulties:
-        selected_difficulty = input("Choose a difficulty (easy, medium, hard), default is easy: ").strip().lower()
-        if not selected_difficulty:
-            selected_difficulty = "easy"
+    default_difficulty = str(os.getenv("DEFAULT_DIFFICULTY", "easy"))
+
+    selected_difficulty = user_input_service.input_for_difficulty_level(available_difficulties, default_difficulty)
 
     return difficulty_service.get_difficulty(selected_difficulty)
 
@@ -253,18 +292,21 @@ def main():
         openai_service = OpenAIService()
         difficulty_service = DifficultyService()
         display_service = DisplayService()
+        user_input_service = UserInputService()
+        sound_service = SoundService()
 
         # Initialize widgets
         spinner = SpinnerWidget()
 
         # Display welcome screen
-        display_service.print_welcome_screen("Player") #todo: Welcome screen no longer needs username, update the method.
+        sound_service.play_opening_sound()
+        display_service.print_welcome_screen()
 
         # Set up the team
-        team = setup_team()
+        team = setup_team(user_input_service)
 
         # Choose difficulty
-        difficulty = choose_difficulty(difficulty_service)
+        difficulty = choose_difficulty(difficulty_service, user_input_service)
 
         # Initialize the game
         game = Game(team, difficulty)
@@ -274,22 +316,19 @@ def main():
 
         # Game loop
         while game.current_question_index < len(game.difficulty.prizes):
-
             is_correct, prize_or_safe_prize = ask_question(
                 game,
                 wikipedia_service,
                 openai_service,
+                sound_service,
                 spinner,
                 wiki_max_tries,
-                openai_max_tries,
-                20
-
-
+                openai_max_tries
             )
             if is_correct:
                 if game.current_question_index == len(game.difficulty.prizes) - 1:
                     game.win_game(prize_or_safe_prize)
-                    print(f"You won. Your team is now millionaires")
+                    display_service.print_end_screen()
             else:
                 game.finish_game(prize_or_safe_prize)
                 break
@@ -298,14 +337,18 @@ def main():
             game.update_question_index()
 
         # Display the game duration
-        print(f"You answered {game.current_question_index + 1} questions.")
+        print(f"You answered {len(game.questions)} questions correctly.")
         print(f"Your game lasted for {str(game.get_time_elapsed()).split('.')[0]} seconds.")
 
         # Ask if the user wants to play again
-        play_again = input("\nDo you want to play again? (Y/n): ").strip().lower()
-        if play_again == "n":
-            print("Thank you for playing Wiki Millionaire! Goodbye!")
-            break
+        while True:
+            play_again = input("\nDo you want to play again? (Y/n): ").strip().lower()
+            if play_again == "n":
+                print("Thank you for playing Wiki Millionaire! Goodbye!")
+                quit()
+            if play_again == "y":
+                break
+            print(f"Did you said '{play_again}'? Come on, you know better than that.")
 
 
 if __name__ == "__main__":

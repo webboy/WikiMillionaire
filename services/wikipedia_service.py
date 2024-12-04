@@ -1,6 +1,4 @@
 import wikipedia
-from spacy.lang.am.examples import sentences
-
 
 class WikipediaService:
     """
