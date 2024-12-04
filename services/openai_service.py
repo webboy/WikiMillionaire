@@ -39,17 +39,19 @@ class OpenAIService:
 
             Text:
             {text}
-
+            
+            Make sure you always put the correct answer in option A.
+            
             Format your response as pure JSON (no extra characters) with the following structure:
             {{
                 "question": "Your generated question here",
                 "options": {{
-                    "A": "Option 1",
-                    "B": "Option 2",
-                    "C": "Option 3",
-                    "D": "Option 4",
-                    "E": "Option 5",
-                    "F": "Option 6"
+                    "A": "Option A",
+                    "B": "Option B",
+                    "C": "Option C",
+                    "D": "Option D",
+                    "E": "Option E",
+                    "F": "Option F"
                 }},
                 "correct_answer": "A",
                 "source": "{source}"
