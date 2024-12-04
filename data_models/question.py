@@ -29,6 +29,7 @@ class Question:
         self.source = source
         self.hint = hint
         self.difficulty = difficulty
+        self.show_hint = False
 
     def is_correct(self, answer: str) -> bool:
         """
@@ -46,6 +47,9 @@ class Question:
         output = f"{self.question}\n"
         for letter, option in self.options.items():
             output += f"{letter}. {option}\n"
+
+        if self.show_hint:
+            output += f"Hint: {self.hint}\n"
         return output
 
     def shuffle_options(self):

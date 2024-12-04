@@ -1,4 +1,6 @@
 import wikipedia
+from spacy.lang.am.examples import sentences
+
 
 class WikipediaService:
     """
@@ -22,6 +24,6 @@ class WikipediaService:
             random_title = wikipedia.random()
 
             # Fetch the summary for the random page
-            return wikipedia.summary(random_title)
+            return wikipedia.summary(random_title, sentences=10, auto_suggest=False)
         except Exception as e:
             return f"Error: {e}"

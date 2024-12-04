@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
 from enum import Enum
+
+from jokers.fifty_joker import FiftyJoker
 from data_models.team import Team
 from data_models.difficulty import Difficulty
+from jokers.hint_joker import HintJoker
 
 
 class GameStatus(Enum):
@@ -30,15 +33,17 @@ class Game:
         self.current_player_index = 0
         self.status = GameStatus.ONGOING
         self.amount_won = 0
+        self.questions = []
+        self.jokers = {
+            "fifty": FiftyJoker(),
+            "hint": HintJoker(),
+        }
 
     def update_question_index(self):
         """
         Increment the current question index.
         """
-        if self.current_question_index < len(self.difficulty.prizes) - 1:
-            self.current_question_index += 1
-        else:
-            self.win_game()
+        self.current_question_index += 1
 
     def update_player_index(self):
         """
@@ -89,6 +94,9 @@ class Game:
         """
         end_time = self.time_finished if self.time_finished else datetime.now()
         return end_time - self.time_started
+
+    def add_question(self, question):
+        self.questions.append(question)
 
     def to_dict(self):
         """
