@@ -10,7 +10,7 @@ class Player:
         """
         if not username or not username.strip():
             raise ValueError("Username cannot be empty.")
-        if len(username.strip()) < 5:
+        if len(username.strip()) < 1:
             raise ValueError("Username must be at least 5 characters long.")
         self.username = username.strip()
 
