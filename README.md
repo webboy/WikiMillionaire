@@ -80,8 +80,8 @@ pytest
 ## 📧 Contact
 For questions or feedback, feel free to reach out to the development team.
 
-- @nchachn
-- @sajax1981
-- @yhupe
-- @Vanitax93
-- @webboy
+- [@nchachn](https://github.com/nchachn)
+- [@sajax1981](https://github.com/sajax1981)
+- [@yhupe](https://github.com/yhupe)
+- [@Vanitax93](https://github.com/Vanitax93)
+- [@webboy](https://github.com/webboy)
