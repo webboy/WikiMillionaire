@@ -181,9 +181,10 @@ class DisplayService:
     def time_up(self, time_limit):
         print(f"\n{self.RED}Timed out after {time_limit} seconds, sorry. Press [ENTER] to continue...{self.RESET}")
 
-    def display_wrong_answer(self, current_player, question, answer):
+    def display_wrong_answer(self, current_player, question, answer, safe_prize):
         print(f"{self.RED}Uh, oh..... Wrong answer, {self.GREEN}{current_player.username}{self.RED}!{self.RESET}")
         print(f"The correct answer is '{question.correct_answer}' and you answered with '{answer}'.")
+        print(f"Your team leaves with {self.GOLD}${safe_prize}{self.RESET}.")
         print(f"Come on, now, did you really think you can become a {self.__millionaire()}? You did? Ok then, try again.")
 
     def display_correct_answer(self, current_player, prize, game):

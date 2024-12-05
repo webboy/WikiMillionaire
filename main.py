@@ -23,6 +23,7 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, display
     """
     Handles the logic for asking a single question in the game with a 30-second timer.
 
+    :param display_service: DisplayService instance
     :param sound_service: SoundService instance
     :param game: The current Game instance.
     :param wikipedia_service: WikipediaService instance.
@@ -163,10 +164,11 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, display
             return True, prize
 
         # Handle incorrect answer
+        display_service.line_break()
         sound_service.play_answer_sound()
-        display_service.display_wrong_answer(current_player, question, answer)
+        display_service.display_wrong_answer(current_player, question, answer, safe_prize)
 
-        print(f"Your team leaves with ${safe_prize}.")
+
         ask_thread.join()
         timer_thread.join()
         return False, safe_prize
@@ -292,7 +294,6 @@ def generate_question_from_openai(openai_service, text, source, max_attempts, sp
     spinner.stop()
     print("\nFailed to generate a question from OpenAI after multiple attempts.")
     quit()
-
 
 def main():
     while True:  # Infinite loop to replay the game
