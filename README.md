@@ -83,4 +83,5 @@ For questions or feedback, feel free to reach out to the development team.
 - @nchachn
 - @sajax1981
 - @yhupe
+- @Vanitax93
 - @webboy
