@@ -1,5 +1,6 @@
 import pygame
 import os
+import sys
 
 class SoundService:
     def __init__(self):
@@ -10,12 +11,18 @@ class SoundService:
         # Use os.path.join for cross-platform path handling
         self.folder = os.path.join(os.path.dirname(__file__), '..', 'media')
 
-        self.answer_sound = os.path.join(self.folder, 'answer_sound.mp3')
-        self.end_sound = os.path.join(self.folder, 'end_sound.mp3')
-        self.opening_sound = os.path.join(self.folder, 'opening_sound.mp3')
-        self.background_sound = os.path.join(self.folder, 'background_sound.mp3')
+        self.answer_sound = self.get_resource_path(os.path.join(self.folder, 'answer_sound.mp3'))
+        self.end_sound = self.get_resource_path(os.path.join(self.folder, 'end_sound.mp3'))
+        self.opening_sound = self.get_resource_path(os.path.join(self.folder, 'opening_sound.mp3'))
+        self.background_sound = self.get_resource_path(os.path.join(self.folder, 'background_sound.mp3'))
 
         self.is_enabled = True
+
+    def get_resource_path(self, relative_path):
+        """Get the absolute path to a resource in a PyInstaller bundle."""
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, relative_path)
+        return os.path.join(os.path.abspath("."), relative_path)
 
     def enable_sound(self):
         self.is_enabled = True

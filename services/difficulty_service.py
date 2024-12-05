@@ -1,5 +1,7 @@
 import json
 from data_models.difficulty import Difficulty
+import os
+import sys
 
 
 class DifficultyService:
@@ -12,8 +14,14 @@ class DifficultyService:
         Initialize the DifficultyService with the file path for difficulties.
         :param file_path: Path to the JSON file containing difficulty settings.
         """
-        self.file_path = file_path
+        self.file_path = self.get_resource_path(file_path)
         self.difficulties = {}
+
+    def get_resource_path(self, relative_path):
+        """Get the absolute path to a resource in a PyInstaller bundle."""
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, relative_path)
+        return os.path.join(os.path.abspath("."), relative_path)
 
     def load_difficulties(self):
         """
