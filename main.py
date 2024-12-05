@@ -18,12 +18,12 @@ from services.sound_service import SoundService
 # Import widgets
 from widgets.spinner_widget import SpinnerWidget
 
-def ask_question(game, wikipedia_service, openai_service, sound_service, spinner, wiki_max_tries, openai_max_tries, time_limit = 30):
+
+def ask_question(game, wikipedia_service, openai_service, sound_service, display_service, spinner, wiki_max_tries, openai_max_tries):
     """
     Handles the logic for asking a single question in the game with a 30-second timer.
 
     :param sound_service: SoundService instance
-    :param time_limit: Time limit in seconds for the answer
     :param game: The current Game instance.
     :param wikipedia_service: WikipediaService instance.
     :param openai_service: OpenAIService instance.
@@ -40,9 +40,11 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, spinner
     safe_levels = game.difficulty.safe_levels
     index = game.current_question_index
     prize = prizes[index]
+    time_limit = game.difficulty.question_time
 
-    print(f"It's {current_player.username}'s turn!")
-    print(f"\nQuestion {index + 1} / {len(prizes)} for ${prize}:")
+    display_service.line_break()
+
+    display_service.display_question_header(current_player, index, prizes, prize)
 
     # Get random Wikipedia summary with retries
     summary = fetch_random_wikipedia_summary(wikipedia_service, wiki_max_tries, spinner)
@@ -74,6 +76,7 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, spinner
         nonlocal answer_event
         nonlocal timeout_event
         nonlocal answer_container
+        nonlocal display_service
 
         # Calculate remaining time
         remaining_time = time_limit - (time.time() - start_time)
@@ -85,14 +88,14 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, spinner
         available_options = ", ".join(d_question.options.keys())
 
         # Get the player's answer
-        print(f"\n Attention: You have {remaining_time:.2f} seconds to answer the question.")
+        display_service.display_time_attention(remaining_time)
 
         # jokers
         available_jokers = game.jokers.keys()
         if available_jokers:
             print(f"\nYou have {len(available_jokers)} jokers. Type the following commands to use the joker:")
             for joker_index in available_jokers:
-                print(f"\n{joker_index} - {game.jokers[joker_index].name}")
+                print(f"{joker_index} - {game.jokers[joker_index].name}")
         else:
             print(f"\nYou have no available jokers.")
 
@@ -138,19 +141,21 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, spinner
         default=0,
     )
     if answer_event.is_set():
-        timeout_event.set() # Stop the timer thread
+        timeout_event.set()  # Stop the timer thread
 
         answer = answer_container.get("answer", "")
         # Validate the answer
         if answer == 'quit':
-            print(f"We are sorry to see you leaving, {current_player.username}, but we understand life is not always about playing games.")
+            print(
+                f"We are sorry to see you leaving, {current_player.username}, but we understand life is not always about playing games.")
             print(f"Your team leaves with ${safe_prize}.")
             ask_thread.join()
             timer_thread.join()
             return False, safe_prize
 
         if question.is_correct(answer):
-            print(f"Correct! {current_player.username} has won ${prize} for the {game.team.name} team!")
+            display_service.line_break()
+            display_service.display_correct_answer(current_player, prize, game)
             game.add_question(question)
             ask_thread.join()
             timer_thread.join()
@@ -159,8 +164,7 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, spinner
 
         # Handle incorrect answer
         sound_service.play_answer_sound()
-        print(f"Wrong answer, {current_player.username}!")
-        print(f"The correct answer is '{question.correct_answer}' and you answered with '{answer}'.")
+        display_service.display_wrong_answer(current_player, question, answer)
 
         print(f"Your team leaves with ${safe_prize}.")
         ask_thread.join()
@@ -168,12 +172,11 @@ def ask_question(game, wikipedia_service, openai_service, sound_service, spinner
         return False, safe_prize
 
     if timeout_event.is_set():
-        print(f"\nTimed out after {time_limit} seconds, sorry. Press [ENTER] to continue..."
-              f"")
+        display_service.time_up(time_limit)
+
         ask_thread.join()
         timer_thread.join()
         return False, safe_prize
-
 
 
 def setup_team(user_input_service: UserInputService) -> Team:
@@ -197,7 +200,6 @@ def setup_team(user_input_service: UserInputService) -> Team:
         except ValueError as e:
             print(f"Error: {e}")
 
-
     num_players = user_input_service.input_for_players_number(max_players)
 
     default_username_prefix = str(os.getenv("DEFAULT_USERNAME", "Player"))
@@ -206,6 +208,7 @@ def setup_team(user_input_service: UserInputService) -> Team:
         team.add_player(player)
 
     return team
+
 
 def prepare_question(question, difficulty) -> Question:
     """
@@ -236,19 +239,28 @@ def prepare_question(question, difficulty) -> Question:
 
     return question
 
-def choose_difficulty(difficulty_service, user_input_service) -> Difficulty :
+
+def choose_difficulty(
+        difficulty_service: DifficultyService,
+        user_input_service: UserInputService,
+        display_service: DisplayService
+) -> Difficulty:
     """
     Let the player choose a difficulty level and return the corresponding Difficulty object.
     """
     difficulty_service.load_difficulties()
     available_difficulties = difficulty_service.list_difficulties()
-    print("\nAvailable difficulties:", ", ".join(available_difficulties))
+
+    print(f"It's time to choose a difficulty level. Be careful now...")
 
     default_difficulty = str(os.getenv("DEFAULT_DIFFICULTY", "easy"))
+
+    display_service.display_difficulties(difficulty_service.difficulties)
 
     selected_difficulty = user_input_service.input_for_difficulty_level(available_difficulties, default_difficulty)
 
     return difficulty_service.get_difficulty(selected_difficulty)
+
 
 def fetch_random_wikipedia_summary(wikipedia_service, max_attempts, spinner):
     """
@@ -265,6 +277,7 @@ def fetch_random_wikipedia_summary(wikipedia_service, max_attempts, spinner):
     print("\nFailed to fetch a random Wikipedia page after multiple attempts.")
     quit()
 
+
 def generate_question_from_openai(openai_service, text, source, max_attempts, spinner) -> Question:
     """
     Generate a question from OpenAI with retries and spinner feedback.
@@ -279,6 +292,7 @@ def generate_question_from_openai(openai_service, text, source, max_attempts, sp
     spinner.stop()
     print("\nFailed to generate a question from OpenAI after multiple attempts.")
     quit()
+
 
 def main():
     while True:  # Infinite loop to replay the game
@@ -305,14 +319,16 @@ def main():
         # Set up the team
         team = setup_team(user_input_service)
 
+        display_service.line_break()
+
         # Choose difficulty
-        difficulty = choose_difficulty(difficulty_service, user_input_service)
+        difficulty = choose_difficulty(difficulty_service, user_input_service, display_service)
+        display_service.line_break()
 
         # Initialize the game
         game = Game(team, difficulty)
 
-        prizes = game.difficulty.prizes
-        safe_levels = game.difficulty.safe_levels
+        display_service.display_team_welcome(game.team)
 
         # Game loop
         while game.current_question_index < len(game.difficulty.prizes):
@@ -321,13 +337,16 @@ def main():
                 wikipedia_service,
                 openai_service,
                 sound_service,
+                display_service,
                 spinner,
                 wiki_max_tries,
                 openai_max_tries
             )
             if is_correct:
                 if game.current_question_index == len(game.difficulty.prizes) - 1:
+                    # The team became MILLIONAIRE
                     game.win_game(prize_or_safe_prize)
+                    sound_service.play_end_sound()
                     display_service.print_end_screen()
             else:
                 game.finish_game(prize_or_safe_prize)
@@ -339,6 +358,8 @@ def main():
         # Display the game duration
         print(f"You answered {len(game.questions)} questions correctly.")
         print(f"Your game lasted for {str(game.get_time_elapsed()).split('.')[0]} seconds.")
+
+        display_service.line_break()
 
         # Ask if the user wants to play again
         while True:

@@ -6,7 +6,8 @@
             "2": 1000,
             "4": 100000
         },
-        "options_number": 3
+        "options_number": 3,
+        "question_time": 60
     },
     "medium": {
         "identifier": "medium",
@@ -15,7 +16,8 @@
             "5": 1000,
             "10": 32000
         },
-        "options_number": 4
+        "options_number": 4,
+        "question_time": 40
     },
     "hard": {
         "identifier": "hard",
@@ -24,6 +26,7 @@
             "5": 1000,
             "10": 32000
         },
-        "options_number": 6
+        "options_number": 6,
+        "question_time": 20
     }
 }

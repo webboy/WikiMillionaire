@@ -3,7 +3,7 @@ class Difficulty:
     Represents the difficulty level in the game.
     """
 
-    def __init__(self, identifier: str, prizes: list, safe_levels: dict, options_number: int):
+    def __init__(self, identifier: str, prizes: list, safe_levels: dict, options_number: int, question_time: int):
         """
         Initialize a Difficulty instance.
         :param identifier: The difficulty identifier (e.g., 'easy', 'medium', 'hard').
@@ -15,6 +15,7 @@ class Difficulty:
         self.prizes = prizes
         self.safe_levels = safe_levels
         self.options_number = options_number
+        self.question_time = question_time
 
     def to_dict(self) -> dict:
         """
@@ -26,6 +27,7 @@ class Difficulty:
             "prizes": self.prizes,
             "safe_levels": self.safe_levels,
             "options_number": self.options_number,
+            "question_time": self.question_time,
         }
 
     @staticmethod
@@ -40,4 +42,5 @@ class Difficulty:
             prizes=data["prizes"],
             safe_levels=data["safe_levels"],
             options_number=data["options_number"],
+            question_time=data["question_time"],
         )

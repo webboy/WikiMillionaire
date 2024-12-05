@@ -1,12 +1,17 @@
 import os
 import time
 
+from data_models.team import Team
+
+
 # Function to center the text in terminal window
 class DisplayService:
     def __init__(self):
         self.GOLD = "\033[33m"  # Yellow text color (for the title)
         self.GREEN = "\033[32m"  # Green text color (for the messages)
         self.RESET = "\033[0m"  # Reset color code to return to default terminal colors
+        self.BLUE = "\033[0;34m"  # blue
+        self.RED = "\033[31m"  # Red text color
 
     # Function to center the text in terminal window
     def __center_text(self, text, width=80):
@@ -56,7 +61,7 @@ class DisplayService:
         # Define green text messages for the welcome screen
         welcome_message = f"{self.GREEN}Welcome to Wikimillionaire Game!{self.RESET}"
         test_message = f"{self.GREEN}Prepare to test your knowledge and teamwork skills to beat the game!{self.RESET}"
-        ready_message = f"{self.GREEN}Are you ready to become a Millionaire? Let's get started!{self.RESET}"
+        ready_message = f"{self.GREEN}Are you ready to become a {self.__millionaire()}{self.GREEN}? Let's get started!{self.RESET}"
 
         # The new rules introduction message
         rules_message = f"""{self.GREEN}  
@@ -64,7 +69,7 @@ class DisplayService:
     1. You need to answer each question by typing the letter displayed before each option.
     2. You have limited amount of time to answer each question.
     3. You can use available jokers to help you out.
-    4. You must answer all questions correctly to become the MILLIONAIRE.
+    4. You must answer all questions correctly to become the {self.__millionaire()}{self.GREEN}.
     5. You can reach safety levels which guarantee the secured amount.
     6. You can type 'quit' to quit the game and take home the amount you secured throughout the game.
     {self.RESET}"""
@@ -105,6 +110,8 @@ class DisplayService:
     def print_end_screen(self):
         # Clear the terminal
         os.system('cls' if os.name == 'nt' else 'clear')  # clears screen
+
+        print(f"Meh..... ok, it looks like you really are a {self.__millionaire()} material, but....")
 
         # ASCII Art for "Game Over"
         end_art = f""" {self.GOLD}  
@@ -149,3 +156,39 @@ class DisplayService:
 
         # Wait for 2 seconds before exiting
         time.sleep(2)
+
+    def display_difficulties(self, difficulties):
+        for key, difficulty in difficulties.items():
+            print(f"\n {difficulty.identifier.upper()} :")
+            print(f"Number of questions: {len(difficulty.prizes)}")
+            print(f"Number of options: {difficulty.options_number}")
+            print(f"Time to answer: {difficulty.question_time}")
+
+    def line_break(self):
+        print(f"{self.GOLD}{'=' * 100}{self.RESET}")
+
+    def display_team_welcome(self, team: Team) -> None:
+        print(f"Ok, it's time to see if you have what it takes to become {self.__millionaire()}")
+        print(f"Go, Go {self.BLUE}{team.name}{self.RESET}!")
+
+    def display_time_attention(self, time_remaining):
+        print(f"\n{self.RED}Attention{self.RESET}: You have {self.RED}{time_remaining:.2f}{self.RESET} seconds to answer the question.")
+
+    def display_question_header(self, current_player, index, prizes, prize):
+        print(f"Get ready {self.GREEN}{current_player.username}{self.RESET}, it's time to answer the question!")
+        print(f"Question {index + 1} / {len(prizes)} for ${prize}:\n")
+
+    def time_up(self, time_limit):
+        print(f"\n{self.RED}Timed out after {time_limit} seconds, sorry. Press [ENTER] to continue...{self.RESET}")
+
+    def display_wrong_answer(self, current_player, question, answer):
+        print(f"{self.RED}Uh, oh..... Wrong answer, {self.GREEN}{current_player.username}{self.RED}!{self.RESET}")
+        print(f"The correct answer is '{question.correct_answer}' and you answered with '{answer}'.")
+        print(f"Come on, now, did you really think you can become a {self.__millionaire()}? You did? Ok then, try again.")
+
+    def display_correct_answer(self, current_player, prize, game):
+        print(f"Correct! {self.GREEN}{current_player.username}{self.RESET} has won {self.GOLD}${prize}{self.RESET}"
+              f" for the {self.BLUE}{game.team.name}{self.RESET} team!")
+
+    def __millionaire(self):
+        return f"{self.GOLD}MILLIONAIRE{self.RESET}"
