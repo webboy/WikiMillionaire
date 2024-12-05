@@ -56,13 +56,7 @@ Answer Questions: Questions are dynamically generated. Enter the correct option 
 
 Play Again: After the game ends, choose whether to start a new game or exit.
 
-## 🛠️ Key Technologies
-Python: Core programming language.
-Wikipedia API: Fetches random summaries for question generation.
-OpenAI API: Processes Wikipedia summaries into trivia questions.
-Pygame: Handles background music and sound effects.
-Threading: Ensures smooth gameplay with timers and asynchronous events.
-## 🎨 Programming features
+## 🛠 Programming features
 - Usage of classes
 - Multi-threading (Implementation of the countdown timer)
 - Usage of Wikipedia API
